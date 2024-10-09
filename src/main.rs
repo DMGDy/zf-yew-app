@@ -1,7 +1,6 @@
 use yew::prelude::*;
 use serde::{Serialize,Deserialize};
 use gloo::net::http::Request;
-use web_sys::wasm_bindgen::JsCast;
 use wasm_bindgen_futures::spawn_local;
 use std::fmt;
 use std::str::FromStr;
@@ -9,7 +8,7 @@ use std::str::FromStr;
 const ADDRESS: &str = "http://172.20.10.7:8080";
 
 #[derive(Deserialize,Clone)]
-pub enum ServerResponse {
+pub enum State {
     Awake,
     InProgress,
     Done,
@@ -21,8 +20,8 @@ pub enum ServerResponse {
     EUnkown
 }
 
-impl ServerResponse {
-    fn from_i32(n: i32) -> ServerResponse {
+impl State {
+    fn from_i32(n: i32) -> State {
         match n {
             0 => Self::Idle,
             1 => Self::Awake,
@@ -60,7 +59,7 @@ impl ServerResponse {
             Self::ENoRead => "There was an error reading data from the microcontroller",
             Self::ENoWrite => "There was an error writing data to the microcontroller",
             Self::EOpen => "There was an error trying to communicate to the microcontroller",
-            Self::EUnkown => "Something bad went wrong",
+            Self::EUnkown => "Something bad went wrong, check browser console",
         }
     }
 }
@@ -111,7 +110,7 @@ pub enum Msg {
     UpdateChosenDevice(Device),
     UpdateStringPot(bool),
     StartTest,
-    UpdateStatus(ServerResponse),
+    UpdateStatus(State),
 }
 pub struct App {
     chosen_dev: Device,
@@ -119,7 +118,7 @@ pub struct App {
     bst_chosen: bool,
     use_str_pot: bool,
     test_data: TestData,
-    status: ServerResponse,
+    state: State,
 }
 
 impl Component for App{
@@ -133,7 +132,7 @@ impl Component for App{
             bst_chosen: false,
             use_str_pot: false,
             show_devices: false,
-            status: ServerResponse::Idle,
+            state: State::Idle,
         }
     }
 
@@ -159,24 +158,12 @@ impl Component for App{
                 true
             }
             Msg::StartTest => {
-                    let test = self.test_data.clone();
-                    let link = ctx.link().clone();
-                    spawn_local(async move {
-                        let response = Request::post(ADDRESS)
-                            .json(&test)
-                            .unwrap()
-                            .send()
-                            .await;
-                        let new_status = match response.unwrap().json::<i32>().await{
-                            Ok(code) => { ServerResponse::from_i32(code) }
-                            Err(_) => { ServerResponse::EUnkown }
-                        };
-                        link.send_message(Msg::UpdateStatus(new_status));
-                    });
+                self.test(&ctx);
                 true
             }
             Msg::UpdateStatus(response) => {
-                self.status = response;
+                self.state = response;
+
                 true
             }
         }
@@ -204,11 +191,10 @@ impl Component for App{
                                 {" Use String Potentiometer"}
                             }
                         </div>
-
                     }
                 <div style="margin:25px">
-                    <strong>{"Server State:"}</strong>{self.status.code()}<br/>
-                    {self.status.message()}
+                    <strong>{"Server State:"}</strong>{self.state.code()}<br/>
+                    {self.state.message()}
                 </div>
                     <button onclick={link.callback(|_| Msg::StartTest)}> {"Start Test"}</button>
 
@@ -219,6 +205,39 @@ impl Component for App{
 }
 
 impl App {
+    fn test(&self, ctx: &Context<Self>) {
+        let status = self.state.clone();
+        match status {
+            /*-------------------------------------------------------*/
+            // from Idle to starting
+            /*-------------------------------------------------------*/
+            State::Idle => {
+                let test = self.test_data.clone();
+                let link = ctx.link().clone();
+                spawn_local(async move {
+                    let response = Request::post(ADDRESS)
+                        .json(&test)
+                        .unwrap()
+                        .send()
+                        .await;
+                    let new_status = match response.unwrap().json::<i32>().await{
+                        Ok(code) => { State::from_i32(code) }
+                        Err(_) => { State::EUnkown }
+                    };
+                    link.send_message(Msg::UpdateStatus(new_status));
+                });
+            }
+            /*-------------------------------------------------------*/
+            // server is awake, M4 is running firmware
+            /*-------------------------------------------------------*/
+            State::Awake => {
+                
+            }
+
+            _ => {}
+        }
+    }
+
     fn show_devices(&self, ctx: &Context<Self>) -> Html {
         let link = ctx.link();
         html! {
