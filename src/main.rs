@@ -1,111 +1,33 @@
 use yew::prelude::*;
-use serde::{Serialize,Deserialize};
 use gloo::net::http::Request;
+use gloo_timers::callback::Interval;
 use wasm_bindgen_futures::spawn_local;
-use std::fmt;
-use std::str::FromStr;
+use std::error::Error;
 
-const ADDRESS: &str = "http://172.20.10.7:8080";
+use crate::{states::State,
+    device::{Device, TestData}
+};
 
-#[derive(Deserialize,Clone)]
-pub enum State {
-    Awake,
-    InProgress,
-    Done,
-    Idle,
-    ENoFirmware,
-    ENoRead,
-    ENoWrite,
-    EOpen,
-    EUnkown
-}
+pub mod states;
+pub mod device;
 
-impl State {
-    fn from_i32(n: i32) -> State {
-        match n {
-            0 => Self::Idle,
-            1 => Self::Awake,
-            2 => Self::InProgress,
-            3 => Self::Done,
-            -1 => Self::ENoFirmware,
-            -2 => Self::ENoRead,
-            -3 => Self::ENoWrite,
-            -4 => Self::EOpen,
-            _ => Self:: EUnkown,
-        }
-    }
-    fn code(&self) -> i32 {
-        match self {
-            Self::Idle => 0,
-            Self::Awake => 1,
-            Self::InProgress => 2,
-            Self::Done => 3,
-            Self::ENoFirmware=> -1,
-            Self::ENoRead=> -2,
-            Self::ENoWrite=> -3,
-            Self::EOpen=> -4,
-            Self::EUnkown=> -5,
+const SERVER: &str = "http://172.20.10.7:8080";
+const SERVER_IS_UP: &str = "http://172.20.10.7:8080/up";
 
-        }
-    }
+async fn server_status() -> Result<State, Box<dyn Error>> {
+    let response = Request::get(SERVER_IS_UP)
+        .send()
+        .await;
 
-    fn message(&self) -> &str{
-        match self {
-            Self::Idle => "Awaiting input",
-            Self::Awake => "Server is up and has loaded microcontroller firmware",
-            Self::InProgress => "Microcontroller has began testing",
-            Self::Done => "Test results are available",
-            Self::ENoFirmware => "No Firmware was found for the selected device",
-            Self::ENoRead => "There was an error reading data from the microcontroller",
-            Self::ENoWrite => "There was an error writing data to the microcontroller",
-            Self::EOpen => "There was an error trying to communicate to the microcontroller",
-            Self::EUnkown => "Something bad went wrong, check browser console",
-        }
-    }
-}
-
-#[derive(Serialize,Deserialize,Clone,PartialEq)]
-pub enum Device {
-    BST,
-    CWS,
-    PrS,
-    ESCM,
-    None,
-}
-
-impl FromStr for Device {
-    type Err = ();
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "Break Signal Transmitter" =>Ok(Device::BST),
-            "Continuious Wear Sensor" => Ok(Device::CWS),
-            "Pressure Sensor" => Ok(Device::PrS),
-            "Electronic Stability Control Module" => Ok(Device::ESCM),
-            "None" => Ok(Device::None),
-            _ =>Err(())
-        }
-    }
-}
-
-impl fmt::Display for Device {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Device::BST => write!(f, "Brake Signal Transmitter"),
-            Device::CWS => write!(f, "Continuous Wear Sensor"),
-            Device::PrS => write!(f, "Pressure Sensor"),
-            Device::ESCM=> write!(f, "Electronic Stability Control Module"),
-            Device::None=> write!(f, "No Device Selected"),
-        }
-    }
-}
-
-#[derive(Default,Serialize,Clone,PartialEq)]
-struct TestData {
-    device: String,
-    check: bool,
-}
+    match response?
+        .json::<State>()
+        .await {
+            Ok(state) => Ok(state),
+            Err(_) => Ok(State::EUnknown)
+        } }
 
 pub enum Msg {
+    CheckServerUp,
     ShowDevices,
     UpdateChosenDevice(Device),
     UpdateStringPot(bool),
@@ -119,13 +41,17 @@ pub struct App {
     use_str_pot: bool,
     test_data: TestData,
     state: State,
+    _delta: Option<Interval>,
 }
 
 impl Component for App{
     type Message = Msg; 
     type Properties = ();
 
-    fn create(_ctx: &Context<Self>) -> Self { 
+    fn create(ctx: &Context<Self>) -> Self { 
+        let link = ctx.link().clone();
+        let delta = Interval::
+            new(5000, move || link.send_message(Msg::CheckServerUp));
         Self {
             test_data: TestData::default(), 
             chosen_dev: Device::None,
@@ -133,15 +59,25 @@ impl Component for App{
             use_str_pot: false,
             show_devices: false,
             state: State::Idle,
+            _delta: Some(delta),
         }
     }
 
     fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
+            Msg::CheckServerUp => {
+                ctx.link().send_future(async {
+                    let state = server_status().await.unwrap_or(State::EUnknown);
+                    Msg::UpdateStatus(state)
+                });
+                false
+            },
+
             Msg::ShowDevices => {
                 self.show_devices = !self.show_devices;
                 true
-            }
+            },
+
             Msg::UpdateChosenDevice(device) => {
                 self.chosen_dev = device;
                 self.test_data.device = self.chosen_dev.to_string();
@@ -151,21 +87,24 @@ impl Component for App{
                     self.bst_chosen = false
                 }
                 true
-            }
+            },
+
             Msg::UpdateStringPot(check) => {
                 self.use_str_pot = check;
                 self.test_data.check = self.use_str_pot;
                 true
-            }
+            },
+
             Msg::StartTest => {
                 self.test(&ctx);
                 true
-            }
+            },
+            
             Msg::UpdateStatus(response) => {
                 self.state = response;
 
                 true
-            }
+            },
         }
     }
 
@@ -215,14 +154,17 @@ impl App {
                 let test = self.test_data.clone();
                 let link = ctx.link().clone();
                 spawn_local(async move {
-                    let response = Request::post(ADDRESS)
+                    let response = Request::post(SERVER)
                         .json(&test)
                         .unwrap()
                         .send()
                         .await;
-                    let new_status = match response.unwrap().json::<i32>().await{
+                    let new_status = match response
+                        .unwrap()
+                        .json::<i32>()
+                        .await{
                         Ok(code) => { State::from_i32(code) }
-                        Err(_) => { State::EUnkown }
+                        Err(_) => { State::EUnknown }
                     };
                     link.send_message(Msg::UpdateStatus(new_status));
                 });
