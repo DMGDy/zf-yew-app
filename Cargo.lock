@@ -1093,6 +1093,7 @@ name = "wasm-application"
 version = "0.1.0"
 dependencies = [
  "gloo 0.11.0",
+ "gloo-timers 0.3.0",
  "serde",
  "wasm-bindgen-futures",
  "web-sys",

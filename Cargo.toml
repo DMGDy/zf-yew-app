@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 gloo = "0.11.0"
+gloo-timers = "0.3.0"
 serde = { version = "1.0.210", features = ["serde_derive"] }
 wasm-bindgen-futures = "0.4.43"
 web-sys = "0.3.70"
