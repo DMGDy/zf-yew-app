@@ -65,7 +65,7 @@ impl Component for App{
     fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
             Msg::CheckServerUp => {
-                if matches!(self.state,State::Idle) {
+                if matches!(self.state,State::Idle|State::EOffline) {
                     ctx.link().send_future(async {
                         let state = server_status().await.unwrap_or(State::EOffline);
                         Msg::UpdateStatus(state)
