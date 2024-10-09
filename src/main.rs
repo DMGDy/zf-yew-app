@@ -67,11 +67,13 @@ impl Component for App{
             Msg::CheckServerUp => {
                 let current_state = self.state.clone();
                 ctx.link().send_future(async {
-                    let state = server_status().await.unwrap_or(State::EOffline);
+                    let state = server_status()
+                        .await
+                        .unwrap_or(State::EOffline);
                     // if result of the server status says offline 
                     // and its not already then make it offline
-                    if matches!(state,State::EOffline) && 
-                        !matches!(current_state,State::EOffline) {
+                    if matches!(state,State::EOffline| State::Idle) 
+                        || !matches!(current_state,State::EOffline) {
                         Msg::UpdateStatus(state)
                     }
                     // otherwise keep it as it is
