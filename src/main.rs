@@ -132,7 +132,7 @@ impl Component for App{
                         </div>
                     }
                 <div style="margin:25px">
-                    <strong>{"Server State:"}</strong>{self.state.code()}<br/>
+                    <strong>{"Server State: "}</strong>{self.state.code()}<br/>
                     {self.state.message()}
                 </div>
                     <button onclick={link.callback(|_| Msg::StartTest)}> {"Start Test"}</button>
