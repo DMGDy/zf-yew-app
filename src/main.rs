@@ -67,7 +67,7 @@ impl Component for App{
             Msg::CheckServerUp => {
                 if matches!(self.state,State::Idle) {
                     ctx.link().send_future(async {
-                        let state = server_status().await.unwrap_or(State::EUnknown);
+                        let state = server_status().await.unwrap_or(State::EOffline);
                         Msg::UpdateStatus(state)
                     });
                 }
@@ -172,7 +172,6 @@ impl App {
             /*-------------------------------------------------------*/
             // server is awake, M4 is running firmware
             /*-------------------------------------------------------*/
-            
 
             _ => {}
         }
