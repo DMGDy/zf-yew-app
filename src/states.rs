@@ -10,7 +10,8 @@ pub enum State {
     ENoRead,
     ENoWrite,
     EOpen,
-    EUnknown
+    EUnknown,
+    EOffline
 }
 
 impl State {
@@ -24,6 +25,7 @@ impl State {
             -2 => Self::ENoRead,
             -3 => Self::ENoWrite,
             -4 => Self::EOpen,
+            -5 => Self::EOffline,
             _ => Self:: EUnknown,
         }
     }
@@ -37,7 +39,8 @@ impl State {
             Self::ENoRead=> -2,
             Self::ENoWrite=> -3,
             Self::EOpen=> -4,
-            Self::EUnknown=> -5,
+            Self::EOffline=> -5,
+            Self::EUnknown=> -6,
 
         }
     }
@@ -52,6 +55,7 @@ impl State {
             Self::ENoRead => "There was an error reading data from the microcontroller",
             Self::ENoWrite => "There was an error writing data to the microcontroller",
             Self::EOpen => "There was an error trying to communicate to the microcontroller",
+            Self::EOffline => "The server is offline, trying to connect again...",
             Self::EUnknown => "Something bad went wrong, check browser console",
         }
     }
