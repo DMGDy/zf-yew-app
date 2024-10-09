@@ -19,13 +19,12 @@ async fn server_status() -> Result<State, Box<dyn Error>> {
         .send()
         .await;
 
-    match response?
-        .json::<State>()
-        .await {
-            Ok(state) => Ok(state),
-            Err(_) => Ok(State::EUnknown)
-        } }
-
+    match response?.json::<State>().await {
+        Ok(state) => Ok(state),
+        Err(_) => Ok(State::EUnknown)
+    } 
+}
+                                
 pub enum Msg {
     CheckServerUp,
     ShowDevices,
@@ -51,7 +50,7 @@ impl Component for App{
     fn create(ctx: &Context<Self>) -> Self { 
         let link = ctx.link().clone();
         let delta = Interval::
-            new(5000, move || link.send_message(Msg::CheckServerUp));
+            new(1000, move || link.send_message(Msg::CheckServerUp));
         Self {
             test_data: TestData::default(), 
             chosen_dev: Device::None,
@@ -66,10 +65,12 @@ impl Component for App{
     fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
             Msg::CheckServerUp => {
-                ctx.link().send_future(async {
-                    let state = server_status().await.unwrap_or(State::EUnknown);
-                    Msg::UpdateStatus(state)
-                });
+                if matches!(self.state,State::Idle) {
+                    ctx.link().send_future(async {
+                        let state = server_status().await.unwrap_or(State::EUnknown);
+                        Msg::UpdateStatus(state)
+                    });
+                }
                 false
             },
 
@@ -102,7 +103,6 @@ impl Component for App{
             
             Msg::UpdateStatus(response) => {
                 self.state = response;
-
                 true
             },
         }
@@ -150,7 +150,7 @@ impl App {
             /*-------------------------------------------------------*/
             // from Idle to starting
             /*-------------------------------------------------------*/
-            State::Idle => {
+            State::Awake => {
                 let test = self.test_data.clone();
                 let link = ctx.link().clone();
                 spawn_local(async move {
@@ -172,9 +172,7 @@ impl App {
             /*-------------------------------------------------------*/
             // server is awake, M4 is running firmware
             /*-------------------------------------------------------*/
-            State::Awake => {
-                
-            }
+            
 
             _ => {}
         }
