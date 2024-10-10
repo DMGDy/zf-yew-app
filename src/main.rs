@@ -26,6 +26,7 @@ async fn server_status() -> Result<State, Box<dyn Error>> {
 }
                                 
 pub enum Msg {
+    NoOp,
     CheckServerUp,
     ShowDevices,
     UpdateChosenDevice(Device),
@@ -33,6 +34,7 @@ pub enum Msg {
     StartTest,
     UpdateStatus(State),
 }
+
 pub struct App {
     chosen_dev: Device,
     show_devices: bool,
@@ -57,28 +59,30 @@ impl Component for App{
             bst_chosen: false,
             use_str_pot: false,
             show_devices: false,
-            state: State::Idle,
+            state: State::Offline,
             _delta: Some(delta),
         }
     }
 
     fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
+            Msg::NoOp => false,
             Msg::CheckServerUp => {
                 let current_state = self.state.clone();
-                ctx.link().send_future(async {
+                ctx.link().send_future(async move {
                     let state = server_status()
                         .await
-                        .unwrap_or(State::EOffline);
-                    // if result of the server status says offline 
-                    // and its not already then make it offline
-                    if matches!(state,State::EOffline| State::Idle) 
-                        || !matches!(current_state,State::EOffline) {
-                        Msg::UpdateStatus(state)
-                    }
-                    // otherwise keep it as it is
-                    else {
-                        Msg::UpdateStatus(current_state)
+                        .unwrap_or(State::Offline);
+
+                    match state {
+                        State::Online => {
+                            match current_state {
+                                State::Offline => { Msg::UpdateStatus(state)},
+                                _ => { Msg::NoOp }
+                            }
+                        }
+                        State::Offline => { Msg::UpdateStatus(state) },
+                        _ => {Msg::NoOp},
                     }
                 });
                 false
@@ -88,6 +92,7 @@ impl Component for App{
                 self.show_devices = !self.show_devices;
                 true
             },
+
 
             Msg::UpdateChosenDevice(device) => {
                 self.chosen_dev = device;
@@ -111,8 +116,8 @@ impl Component for App{
                 true
             },
             
-            Msg::UpdateStatus(response) => {
-                self.state = response;
+            Msg::UpdateStatus(state) => {
+                self.state = state;
                 true
             },
         }
@@ -160,7 +165,7 @@ impl App {
             /*-------------------------------------------------------*/
             // from Idle to starting
             /*-------------------------------------------------------*/
-            State::Awake => {
+            State::Online => {
                 let test = self.test_data.clone();
                 let link = ctx.link().clone();
                 spawn_local(async move {
@@ -194,7 +199,7 @@ impl App {
                 <label style="cursor: pointer;" 
                 onclick={link.callback(|_| 
                     Msg::UpdateChosenDevice(Device::BST))}> 
-                <strong>{"Brake Signal Transmitter"}</strong>
+                    <strong>{"Brake Signal Transmitter"}</strong>
                 </label>
 
                 <br/>
@@ -202,7 +207,7 @@ impl App {
                 <label style="cursor: pointer;"
                 onclick={link.callback(|_|
                     Msg::UpdateChosenDevice(Device::CWS))}> 
-                <strong>{"Continuous Wear Sensor"}</strong>
+                    <strong>{"Continuous Wear Sensor"}</strong>
                 </label>
 
                 <br/>
@@ -210,7 +215,7 @@ impl App {
                 <label style="cursor: pointer;"
                 onclick={link.callback(|_|
                     Msg::UpdateChosenDevice(Device::PrS))}> 
-                <strong>{"Pressure Sensor"}</strong>
+                    <strong>{"Pressure Sensor"}</strong>
                 </label>
 
                 <br/>
@@ -218,7 +223,7 @@ impl App {
                 <label style="cursor: pointer;"
                 onclick={link.callback(|_|
                     Msg::UpdateChosenDevice(Device::ESCM))}> 
-                <strong>{"Electronic Stability Control Module"}</strong>
+                    <strong>{"Electronic Stability Control Module"}</strong>
                 </label>
 
                 <br/>
