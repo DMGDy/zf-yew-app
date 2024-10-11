@@ -121,6 +121,7 @@ impl Component for App{
             
             Msg::UpdateStatus(state) => {
                 self.state = state;
+                self.test(&ctx);
                 true
             },
         }
