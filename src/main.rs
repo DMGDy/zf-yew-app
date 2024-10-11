@@ -13,9 +13,11 @@ pub mod device;
 
 const SERVER: &str = "http://172.20.10.7:8080";
 const SERVER_IS_UP: &str = "http://172.20.10.7:8080/up";
+const SERVER_RESULT: &str = "http://172.20.10.7:8080/result";
 
-async fn server_status() -> Result<State, Box<dyn Error>> {
-    let response = Request::get(SERVER_IS_UP)
+async 
+fn server_get(path: &str) -> Result<State, Box<dyn Error>> {
+    let response = Request::get(path)
         .send()
         .await;
 
@@ -53,6 +55,7 @@ impl Component for App{
         let link = ctx.link().clone();
         let delta = Interval::
             new(1000, move || link.send_message(Msg::CheckServerUp));
+
         Self {
             test_data: TestData::default(), 
             chosen_dev: Device::None,
@@ -70,7 +73,7 @@ impl Component for App{
             Msg::CheckServerUp => {
                 let current_state = self.state.clone();
                 ctx.link().send_future(async move {
-                    let state = server_status()
+                    let state = server_get(SERVER_IS_UP)
                         .await
                         .unwrap_or(State::Offline);
 
@@ -113,7 +116,7 @@ impl Component for App{
 
             Msg::StartTest => {
                 self.test(&ctx);
-                true
+                false
             },
             
             Msg::UpdateStatus(state) => {
@@ -183,10 +186,24 @@ impl App {
                     };
                     link.send_message(Msg::UpdateStatus(new_status));
                 });
-            }
+            },
             /*-------------------------------------------------------*/
             // server is awake, M4 is running firmware
             /*-------------------------------------------------------*/
+            State::InProgress => {
+                let link = ctx.link().clone();
+                spawn_local(async  move {
+                    let result = match server_get(SERVER_RESULT).await {
+                        Ok(State::InProgress) => {State::InProgress},
+                        Ok(State::Pass) => {State::Pass},
+                        Ok(State::Fail) => {State::Fail},
+                        Err(_) => {State::EUnknown},
+                        _ => {State::EUnknown},
+                    };
+                    link.send_message(Msg::UpdateStatus(result));
+                });
+
+            }
 
             _ => {}
         }
