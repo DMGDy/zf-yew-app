@@ -15,27 +15,14 @@ pub enum State {
 }
 
 impl State {
-    pub fn from_i32(n: i32) -> State {
-        match n {
-            0 => Self::Offline,
-            1 => Self::Online,
-            2 => Self::InProgress,
-            3 => Self::Pass,
-            4 => Self::Fail,
-            -1 => Self::ENoFirmware,
-            -2 => Self::ENoRead,
-            -3 => Self::ENoWrite,
-            -4 => Self::EOpen,
-            _ => Self:: EUnknown,
-        }
-    }
+
     pub fn code(&self) -> i32 {
         match self {
             Self::Offline => 0,
             Self::Online => 1,
             Self::InProgress => 2,
             Self::Pass=> 3,
-            Self::Fail=> 3,
+            Self::Fail=> 4,
             Self::ENoFirmware=> -1,
             Self::ENoRead=> -2,
             Self::ENoWrite=> -3,
