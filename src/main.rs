@@ -121,9 +121,9 @@ impl Component for App{
             
             Msg::UpdateStatus(state) => {
                 self.state = state;
-                    if matches!(self.state,State::InProgress) {
-                        self.test(&ctx);
-                    }
+                if matches!(self.state,State::InProgress) {
+                    self.test(&ctx);
+                }
                 true
             },
         }
@@ -182,9 +182,9 @@ impl App {
                         .await;
                     let new_status = match response
                         .unwrap()
-                        .json::<i32>()
+                        .json::<State>()
                         .await{
-                        Ok(code) => { State::from_i32(code) }
+                        Ok(code) => { code }
                         Err(_) => { State::EUnknown }
                     };
                     link.send_message(Msg::UpdateStatus(new_status));
