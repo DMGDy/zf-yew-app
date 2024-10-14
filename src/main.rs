@@ -15,6 +15,16 @@ const SERVER: &str = "http://172.20.10.7:8080";
 const SERVER_IS_UP: &str = "http://172.20.10.7:8080/up";
 const SERVER_RESULT: &str = "http://172.20.10.7:8080/result";
 
+async
+fn get_test_data(dev: &str) ->Result<(), Box<dyn Error>> {
+    let _ = Request::get(dev)
+        .send()
+        .await
+        .unwrap();
+
+    Ok(())
+}
+
 async 
 fn server_get(path: &str) -> Result<State, Box<dyn Error>> {
     let response = Request::get(path)
@@ -34,6 +44,7 @@ pub enum Msg {
     UpdateChosenDevice(Device),
     UpdateStringPot(bool),
     StartTest,
+    DownloadFile(Device),
     UpdateStatus(State),
 }
 
@@ -44,6 +55,7 @@ pub struct App {
     use_str_pot: bool,
     test_data: TestData,
     state: State,
+    finished: bool,
     _delta: Option<Interval>,
 }
 
@@ -63,6 +75,7 @@ impl Component for App{
             use_str_pot: false,
             show_devices: false,
             state: State::Offline,
+            finished: false,
             _delta: Some(delta),
         }
     }
@@ -119,6 +132,13 @@ impl Component for App{
                 false
             },
             
+            Msg::DownloadFile(dev) => {
+                spawn_local(async move {
+                    let _ = get_test_data(dev.abbrev()).await;
+                });
+                false
+            }
+
             Msg::UpdateStatus(state) => {
                 self.state = state;
                 if matches!(self.state,State::InProgress) {
@@ -132,6 +152,8 @@ impl Component for App{
     fn view(&self, ctx: &Context<Self>) -> Html {
         let link = ctx.link();
         let check = self.use_str_pot.clone();
+        let finished = self.finished.clone();
+
         html! {
             <div align="center">
             <h1> {"ZF Device Test Web Application"} </h1>
@@ -158,6 +180,14 @@ impl Component for App{
                 </div>
                     <button onclick={link.callback(|_| Msg::StartTest)}> {"Start Test"}</button>
 
+                <div style="margin:20px">
+                    if finished {
+                        <button onclick={
+                            let dev = self.chosen_dev.clone();
+                            link.callback(move |_| Msg::DownloadFile(dev.clone()))}>
+                            {"Download Results in CSV"}</button>
+                    }
+                </div>
             </div>
 
         }
@@ -198,8 +228,12 @@ impl App {
                 spawn_local(async  move {
                     let result = match server_get(SERVER_RESULT).await {
                         Ok(State::InProgress) => {State::InProgress},
-                        Ok(State::Pass) => {State::Pass},
-                        Ok(State::Fail) => {State::Fail},
+                        Ok(State::Pass) => {
+                            State::Pass
+                        },
+                        Ok(State::Fail) => {
+                            State::Fail
+                        },
                         Err(_) => {State::EUnknown},
                         _ => {State::EUnknown},
                     };
