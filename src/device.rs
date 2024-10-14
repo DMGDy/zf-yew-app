@@ -14,6 +14,18 @@ pub enum Device {
     None,
 }
 
+impl Device {
+    pub fn abbrev(&self) -> &str {
+        match self {
+            Device::BST => "BST",
+            Device::CWS => "CWS",
+            Device::PrS => "PrS",
+            Device::ESCM => "ESCM",
+            Device::None => "N/A"
+        }
+    }
+}
+
 impl FromStr for Device {
     type Err = ();
     fn from_str(s: &str) -> Result<Self, Self::Err> {
