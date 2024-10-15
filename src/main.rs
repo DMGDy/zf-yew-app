@@ -17,7 +17,8 @@ const SERVER_RESULT: &str = "http://172.20.10.7:8080/result";
 
 async
 fn get_test_data(dev: &str) ->Result<(), Box<dyn Error>> {
-    let _ = Request::get(dev)
+    let server_path = format!("{SERVER}/{dev}");
+    let _ = Request::get(server_path.as_str())
         .send()
         .await
         .unwrap();
@@ -141,9 +142,12 @@ impl Component for App{
 
             Msg::UpdateStatus(state) => {
                 self.state = state;
-                if matches!(self.state,State::InProgress) {
-                    self.test(&ctx);
-                }
+                match self.state {
+                    State::InProgress => {self.test(&ctx);},
+                    State::Pass => {self.finished = true;}
+                    State::Fail => {self.finished = true;}
+                    _ => {}
+                };
                 true
             },
         }
@@ -228,12 +232,8 @@ impl App {
                 spawn_local(async  move {
                     let result = match server_get(SERVER_RESULT).await {
                         Ok(State::InProgress) => {State::InProgress},
-                        Ok(State::Pass) => {
-                            State::Pass
-                        },
-                        Ok(State::Fail) => {
-                            State::Fail
-                        },
+                        Ok(State::Pass) => { State::Pass },
+                        Ok(State::Fail) => { State::Fail },
                         Err(_) => {State::EUnknown},
                         _ => {State::EUnknown},
                     };
