@@ -168,7 +168,7 @@ impl Component for App{
 
                 <div style="margin:20px">
                     if finished {
-                        <a href={format!("data/{dev}-test.csv")} >
+                        <a href={format!("{SERVER}/data/{dev}-test.csv")} >
                             <button> 
                                 {format!("Download {dev} CSV data")}
                             </button>
