@@ -17,7 +17,7 @@ const SERVER_RESULT: &str = "http://172.20.10.7:8080/result";
 
 async
 fn get_test_data(dev: &str) ->Result<(), Box<dyn Error>> {
-    let server_path = format!("{SERVER}/{dev}");
+    let server_path = format!("{SERVER}/data/{dev}-test.csv");
     let _ = Request::get(server_path.as_str())
         .send()
         .await
