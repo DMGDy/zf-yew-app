@@ -15,23 +15,6 @@ const SERVER: &str = "http://172.20.10.7:8080";
 const SERVER_IS_UP: &str = "http://172.20.10.7:8080/up";
 const SERVER_RESULT: &str = "http://172.20.10.7:8080/result";
 
-async
-fn get_test_data(dev: &str) ->Result<(), Box<dyn Error>> {
-    let server_path = format!("{SERVER}/data/{dev}-test.csv");
-    let result = Request::get(&server_path)
-        .send()
-        .await;
-    match result {
-        Ok(_) => {},
-        Err(e) => {
-            gloo::console::error!(
-                format!("Error fetching file: {e}"));
-        }
-    }
-
-    Ok(())
-}
-
 async 
 fn server_get(path: &str) -> Result<State, Box<dyn Error>> {
     let response = Request::get(path)
@@ -51,7 +34,6 @@ pub enum Msg {
     UpdateChosenDevice(Device),
     UpdateStringPot(bool),
     StartTest,
-    DownloadFile(Device),
     UpdateStatus(State),
 }
 
@@ -139,13 +121,6 @@ impl Component for App{
                 false
             },
             
-            Msg::DownloadFile(dev) => {
-                spawn_local(async move {
-                    let _ = get_test_data(dev.abbrev()).await;
-                });
-                false
-            }
-
             Msg::UpdateStatus(state) => {
                 self.state = state;
                 match self.state {
@@ -163,6 +138,7 @@ impl Component for App{
         let link = ctx.link();
         let check = self.use_str_pot.clone();
         let finished = self.finished.clone();
+        let dev = self.chosen_dev.abbrev();
 
         html! {
             <div align="center">
@@ -192,10 +168,11 @@ impl Component for App{
 
                 <div style="margin:20px">
                     if finished {
-                        <button onclick={
-                            let dev = self.chosen_dev.clone();
-                            link.callback(move |_| Msg::DownloadFile(dev.clone()))}>
-                            {"Download Results in CSV"}</button>
+                        <a href={format!("data/{dev}-test.csv")} >
+                            <button> 
+                                {format!("Download {dev} CSV data")}
+                            </button>
+                        </a>
                     }
                 </div>
             </div>
