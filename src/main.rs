@@ -35,6 +35,7 @@ pub enum Msg {
     UpdateStringPot(bool),
     StartTest,
     UpdateStatus(State),
+    Restart
 }
 
 pub struct App {
@@ -131,6 +132,10 @@ impl Component for App{
                 };
                 true
             },
+            Msg::Restart => {
+                self.state = State::Online;
+                true
+            }
         }
     }
 
@@ -173,6 +178,9 @@ impl Component for App{
                                 {format!("Download {dev} CSV data")}
                             </button>
                         </a>
+                        <button onclick={link.callback(|_| Msg::Restart)}>
+                        {"Start another test?"} 
+                        </button>
                     }
                 </div>
             </div>

@@ -38,7 +38,7 @@ impl State {
             Self::Online => "Server is up. Waiting for test to begin.",
             Self::InProgress => "Microcontroller has began testing",
             Self::Pass => "The test inidicates the device passes",
-            Self::Fail=> "The test indicates teh device fails",
+            Self::Fail=> "The test indicates the device fails",
             Self::ENoFirmware => "No Firmware was found for the selected device",
             Self::ENoRead => "There was an error reading data from the microcontroller",
             Self::ENoWrite => "There was an error writing data to the microcontroller",
